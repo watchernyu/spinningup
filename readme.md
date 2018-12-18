@@ -1,3 +1,16 @@
+# Soft Actor-Critic Pytorch Implementation
+Soft Actor-Critic Pytorch Implementation, based on the OpenAI Spinup documentation and some of its code base. This is a very easy-to-learn Pytorch implementation, and recommended to be studied along with the OpenAI Spinup Doc.
+
+The SAC implementation can be found under spinup/algos/sac_pytorch/
+
+Currently doing some code clean-up and will have some more refined comments soon.
+
+
+
+Below are original readme
+
+==================================
+
 **Status:** Active (under active development, breaking changes may occur)
 
 Welcome to Spinning Up in Deep RL! 

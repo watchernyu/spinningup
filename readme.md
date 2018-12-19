@@ -1,10 +1,17 @@
 # Soft Actor-Critic Pytorch Implementation
-Soft Actor-Critic Pytorch Implementation, based on the OpenAI Spinup documentation and some of its code base. This is a very easy-to-learn Pytorch implementation, and recommended to be studied along with the OpenAI Spinup Doc.
+Soft Actor-Critic Pytorch Implementation, based on the OpenAI Spinup documentation and some of its code base. This is a minimal, easy-to-learn and well-commented Pytorch implementation, and recommended to be studied along with the OpenAI Spinup Doc.
 
-The SAC implementation can be found under spinup/algos/sac_pytorch/
+Original SAC paper: https://arxiv.org/abs/1801.01290
 
-Currently doing some code clean-up and will have some more refined comments soon.
+OpenAI Spinup docs on SAC: https://spinningup.openai.com/en/latest/algorithms/sac.html
 
+The SAC implementation can be found under `spinup/algos/sac_pytorch/`
+
+Run experiments with pytorch sac: 
+
+In the sac_pytorch folder, run the SAC code with `python sac_pytorch`
+
+Or you can use a spinup experiment grid: a sample grid is given under `spinningup/experiments/`, you can run it with `python sample_grid.py`
 
 
 Below are original readme

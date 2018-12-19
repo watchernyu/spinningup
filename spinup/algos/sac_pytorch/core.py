@@ -76,6 +76,7 @@ class TanhNormal(Distribution):
         :param pre_tanh_value: arctanh(x)
         :return:
         """
+        # use arctanh formula to compute arctanh(value)
         if pre_tanh_value is None:
             pre_tanh_value = torch.log(
                 (1+value) / (1-value)
@@ -223,6 +224,7 @@ class TanhGaussianPolicy(Mlp):
     ):
         """
         :param obs: Observation
+        :param reparameterize: if True, use the reparameterization trick
         :param deterministic: If True, do not sample
         :param return_log_prob: If True, return a sample and its log probability
         """

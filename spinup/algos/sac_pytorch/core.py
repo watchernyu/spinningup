@@ -7,6 +7,50 @@ from torch.distributions import Distribution, Normal
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
 
+class ReplayBuffer:
+    """
+    A simple FIFO experience replay buffer for SAC agents.
+    """
+    def __init__(self, obs_dim, act_dim, size):
+        """
+        :param obs_dim: size of observation
+        :param act_dim: size of the action
+        :param size: size of the buffer
+        """
+        ## init buffers as numpy arrays
+        self.obs1_buf = np.zeros([size, obs_dim], dtype=np.float32)
+        self.obs2_buf = np.zeros([size, obs_dim], dtype=np.float32)
+        self.acts_buf = np.zeros([size, act_dim], dtype=np.float32)
+        self.rews_buf = np.zeros(size, dtype=np.float32)
+        self.done_buf = np.zeros(size, dtype=np.float32)
+        self.ptr, self.size, self.max_size = 0, 0, size
+
+    def store(self, obs, act, rew, next_obs, done):
+        """
+        data will get stored in the pointer's location
+        data should NOT be in tensor format.
+        it's easier if you get data from environment
+        then just store them with the geiven format
+        """
+        self.obs1_buf[self.ptr] = obs
+        self.obs2_buf[self.ptr] = next_obs
+        self.acts_buf[self.ptr] = act
+        self.rews_buf[self.ptr] = rew
+        self.done_buf[self.ptr] = done
+        ## move the pointer to store in next location in buffer
+        self.ptr = (self.ptr+1) % self.max_size
+        ## keep track of the current buffer size
+        self.size = min(self.size+1, self.max_size)
+
+    def sample_batch(self, batch_size=32):
+        ## sample with replacement from buffer
+        idxs = np.random.randint(0, self.size, size=batch_size)
+        return dict(obs1=self.obs1_buf[idxs],
+                    obs2=self.obs2_buf[idxs],
+                    acts=self.acts_buf[idxs],
+                    rews=self.rews_buf[idxs],
+                    done=self.done_buf[idxs])
+
 class TanhNormal(Distribution):
     """
     Represent distribution of X where
@@ -25,22 +69,19 @@ class TanhNormal(Distribution):
         self.normal = Normal(normal_mean, normal_std)
         self.epsilon = epsilon
 
-
     def log_prob(self, value, pre_tanh_value=None):
         """
-
+        return the log probability of a value
         :param value: some value, x
         :param pre_tanh_value: arctanh(x)
         :return:
         """
-        ## TODO not sure how exactly this part works
         if pre_tanh_value is None:
             pre_tanh_value = torch.log(
                 (1+value) / (1-value)
             ) / 2
-        return self.normal.log_prob(pre_tanh_value) - torch.log(
-            1 - value * value + self.epsilon
-        )
+        return self.normal.log_prob(pre_tanh_value) - \
+               torch.log(1 - value * value + self.epsilon)
 
     def sample(self, return_pretanh_value=False):
         """
@@ -60,6 +101,7 @@ class TanhNormal(Distribution):
         Sampling in the reparameterization case.
         Implement: tanh(mu + sigma * eksee)
         with eksee~N(0,1)
+        z here is mu+sigma+eksee
         """
         z = (
             self.normal_mean +
@@ -69,7 +111,6 @@ class TanhNormal(Distribution):
                 torch.ones(self.normal_std.size())
             ).sample()
         )
-        # z.requires_grad_() ## TODO this line probably not useful?
 
         if return_pretanh_value:
             return torch.tanh(z), z
@@ -77,6 +118,7 @@ class TanhNormal(Distribution):
             return torch.tanh(z)
 
 def fanin_init(tensor):
+    ## used to initialize hidden layers in MLP
     size = tensor.size()
     if len(size) == 2:
         fan_in = size[0]
@@ -108,6 +150,7 @@ class Mlp(nn.Module):
         self.hidden_layers = nn.ModuleList()
         in_size = input_size
 
+        ## initialize each hidden layer
         for i, next_size in enumerate(hidden_sizes):
             fc_layer = nn.Linear(in_size, next_size)
             in_size = next_size
@@ -115,6 +158,7 @@ class Mlp(nn.Module):
             fc_layer.bias.data.fill_(b_init_value)
             self.hidden_layers.append(fc_layer)
 
+        ## init last fully connected layer with small weight and bias
         self.last_fc_layer = nn.Linear(in_size, output_size)
         self.last_fc_layer.weight.data.uniform_(-init_w, init_w)
         self.last_fc_layer.bias.data.uniform_(-init_w, init_w)
@@ -149,18 +193,24 @@ class TanhGaussianPolicy(Mlp):
         last_hidden_size = obs_dim
         if len(hidden_sizes) > 0:
             last_hidden_size = hidden_sizes[-1]
-        ## this is the layer that gives log_std
+        ## this is the layer that gives log_std, init this layer with small weight and bias
         self.last_fc_log_std = nn.Linear(last_hidden_size, action_dim)
         self.last_fc_log_std.weight.data.uniform_(-init_w, init_w)
         self.last_fc_log_std.bias.data.uniform_(-init_w, init_w)
 
     def get_env_action(self, obs_np, action_limit, deterministic=False):
+        """
+        Get an action that can be used to forward one step in the environment
+        :param obs_np: observation got from environment, in numpy form
+        :param action_limit: for scaling the action from range (-1,1) to, for example, range (-3,3)
+        :param deterministic: if true then policy make a deterministic action, instead of sample an action
+        :return: action in numpy format, can be directly put into env.step()
+        """
         ## convert observations to pytorch tensors first
         ## and then use the forward method
         obs_tensor = torch.Tensor(obs_np).unsqueeze(0)
         action_tensor = self.forward(obs_tensor, deterministic=deterministic)[0].detach()
-        ## convert it into the form that can put into the env
-        ## action_limit here is for scaling the action from range (-1,1) to, for example, range (-3,3)
+        ## convert action into the form that can put into the env and scale it
         action_np = action_tensor.numpy().reshape(-1) * action_limit
         return action_np
 
@@ -215,15 +265,9 @@ class TanhGaussianPolicy(Mlp):
             action, mean, log_std, log_prob, std, pre_tanh_value,
         )
 
-def soft_update_from_to(source, target, tau):
-    for target_param, param in zip(target.parameters(), source.parameters()):
-        target_param.data.copy_(
-            target_param.data * (1.0 - tau) + param.data * tau
-        )
-
 def soft_update_model1_with_model2(model1, model2, rou):
     """
-    see openai spinup sac psudocode line 16
+    see openai spinup sac psudocode line 16, used to update target_value_net
     :param model1: a pytorch model
     :param model2: a pytorch model of the same class
     :param rou: the update is model1 <- rou*model1 + (1-rou)model2

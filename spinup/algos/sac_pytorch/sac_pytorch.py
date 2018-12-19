@@ -5,92 +5,36 @@ from torch import Tensor
 import torch.nn as nn
 import torch.optim as optim
 import time
-from spinup.algos.sac_pytorch.core import TanhGaussianPolicy, Mlp, soft_update_model1_with_model2
+from spinup.algos.sac_pytorch.core import TanhGaussianPolicy, Mlp, soft_update_model1_with_model2, ReplayBuffer
 from spinup.utils.logx import EpochLogger
 from spinup.utils.run_utils import setup_logger_kwargs
-
-class ReplayBuffer:
-    """
-    A simple FIFO experience replay buffer for SAC agents.
-    """
-    def __init__(self, obs_dim, act_dim, size):
-        self.obs1_buf = np.zeros([size, obs_dim], dtype=np.float32)
-        self.obs2_buf = np.zeros([size, obs_dim], dtype=np.float32)
-        self.acts_buf = np.zeros([size, act_dim], dtype=np.float32)
-        self.rews_buf = np.zeros(size, dtype=np.float32)
-        self.done_buf = np.zeros(size, dtype=np.float32)
-        self.ptr, self.size, self.max_size = 0, 0, size
-
-    def store(self, obs, act, rew, next_obs, done):
-        self.obs1_buf[self.ptr] = obs
-        self.obs2_buf[self.ptr] = next_obs
-        self.acts_buf[self.ptr] = act
-        self.rews_buf[self.ptr] = rew
-        self.done_buf[self.ptr] = done
-        self.ptr = (self.ptr+1) % self.max_size
-        self.size = min(self.size+1, self.max_size)
-
-    def sample_batch(self, batch_size=32):
-        idxs = np.random.randint(0, self.size, size=batch_size)
-        return dict(obs1=self.obs1_buf[idxs],
-                    obs2=self.obs2_buf[idxs],
-                    acts=self.acts_buf[idxs],
-                    rews=self.rews_buf[idxs],
-                    done=self.done_buf[idxs])
-
 
 def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
                 steps_per_epoch=5000, epochs=100, replay_size=int(1e6), gamma=0.99,
                 polyak=0.995, lr=3e-4, alpha=0.2, batch_size=256, start_steps=10000,
                 max_ep_len=1000, save_freq=1,
-                exp_name='sac', data_dir='data/', logger_kwargs=dict(),):
+                logger_kwargs=dict(),):
     """
-
+    Largely following OpenAI documentation
+    But slightly different from tensorflow implementation
     Args:
         env_fn : A function which creates a copy of the environment.
             The environment must satisfy the OpenAI Gym API.
 
-        actor_critic: A function which takes in placeholder symbols
-            for state, ``x_ph``, and action, ``a_ph``, and returns the main
-            outputs from the agent's Tensorflow computation graph:
-
-            ===========  ================  ======================================
-            Symbol       Shape             Description
-            ===========  ================  ======================================
-            ``mu``       (batch, act_dim)  | Computes mean actions from policy
-                                           | given states.
-            ``pi``       (batch, act_dim)  | Samples actions from policy given
-                                           | states.
-            ``logp_pi``  (batch,)          | Gives log probability, according to
-                                           | the policy, of the action sampled by
-                                           | ``pi``. Critical: must be differentiable
-                                           | with respect to policy parameters all
-                                           | the way through action sampling.
-            ``q1``       (batch,)          | Gives one estimate of Q* for
-                                           | states in ``x_ph`` and actions in
-                                           | ``a_ph``.
-            ``q2``       (batch,)          | Gives another estimate of Q* for
-                                           | states in ``x_ph`` and actions in
-                                           | ``a_ph``.
-            ``q1_pi``    (batch,)          | Gives the composition of ``q1`` and
-                                           | ``pi`` for states in ``x_ph``:
-                                           | q1(x, pi(x)).
-            ``q2_pi``    (batch,)          | Gives the composition of ``q2`` and
-                                           | ``pi`` for states in ``x_ph``:
-                                           | q2(x, pi(x)).
-            ``v``        (batch,)          | Gives the value estimate for states
-                                           | in ``x_ph``.
-            ===========  ================  ======================================
-
-        ac_kwargs (dict): Any kwargs appropriate for the actor_critic
-            function you provided to SAC.
+        hidden_sizes: number of entries is number of hidden layers
+            each entry in this list indicate the size of that hidden layer.
+            applies to all networks
 
         seed (int): Seed for random number generators.
 
         steps_per_epoch (int): Number of steps of interaction (state-action pairs)
-            for the agent and the environment in each epoch.
+            for the agent and the environment in each epoch. Note the epoch here is just logging epoch
+            so every this many steps a logging to stdouot and also output file will happen
+            note: not to be confused with training epoch which is a term used often in literature for all kinds of
+            different things
 
-        epochs (int): Number of epochs to run and train agent.
+        epochs (int): Number of epochs to run and train agent. Usage of this term can be different in different
+            algorithms, use caution. Here every epoch you get new logs
 
         replay_size (int): Maximum length of replay buffer.
 
@@ -114,14 +58,15 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
         batch_size (int): Minibatch size for SGD.
 
         start_steps (int): Number of steps for uniform-random action selection,
-            before running real policy. Helps exploration.
+            before running real policy. Helps exploration. However during testing the action always come from policy
 
-        max_ep_len (int): Maximum length of trajectory / episode / rollout.
-
-        logger_kwargs (dict): Keyword args for EpochLogger.
+        max_ep_len (int): Maximum length of trajectory / episode / rollout. Environment will get reseted if
+        timestep in an episode excedding this number
 
         save_freq (int): How often (in terms of gap between epochs) to save
             the current policy and value function.
+
+        logger_kwargs (dict): Keyword args for EpochLogger.
 
     """
 
@@ -155,7 +100,6 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
         actions are not drawn from a distribution, but just use the mean
         :param n: number of episodes to run the agent
         """
-
         ep_return_list = np.zeros(n)
         for j in range(n):
             o, r, d, ep_ret, ep_len = test_env.reset(), 0, False, 0, 0
@@ -172,7 +116,7 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
     o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
     total_steps = steps_per_epoch * epochs
 
-    """init networks"""
+    """init all networks"""
     # see line 1
     policy_net = TanhGaussianPolicy(obs_dim, act_dim, hidden_sizes)
     value_net = Mlp(obs_dim,1,hidden_sizes)
@@ -188,11 +132,11 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
     q1_optimizer = optim.Adam(q1_net.parameters(),lr=lr)
     q2_optimizer = optim.Adam(q2_net.parameters(),lr=lr)
 
+    # mean squared error loss for v and q networks
     mse_criterion = nn.MSELoss()
 
     # Main loop: collect experience in env and update/log each epoch
     for t in range(total_steps):
-
         """
         Until start_steps have elapsed, randomly sample actions
         from a uniform distribution for better exploration. Afterwards, 
@@ -203,7 +147,7 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
         else:
             a = env.action_space.sample()
 
-        # Step the env
+        # Step the env, get next observation, reward and done signal
         o2, r, d, _ = env.step(a)
         ep_ret += r
         ep_len += 1
@@ -213,7 +157,7 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
         # that isn't based on the agent's state)
         d = False if ep_len == max_ep_len else d
 
-        # Store experience to replay buffer
+        # Store experience (observation, action, reward, next observation, done) to replay buffer
         replay_buffer.store(o, a, r, o2, d)
 
         # Super critical, easy to overlook step: make sure to update
@@ -224,11 +168,10 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
             Perform all SAC updates at the end of the trajectory.
             This is a slight difference from the SAC specified in the
             original paper.
-            The original SAC paper: '. In practice, we take a single environment step
+            Quoted from the original SAC paper: 'In practice, we take a single environment step
             followed by one or several gradient step' after a single environment step,
             the number of gradient steps is 1 for SAC. (see paper for reference)
             """
-            print(t, ep_ret)
             for j in range(ep_len):
                 # get data from replay buffer
                 batch = replay_buffer.sample_batch(batch_size)
@@ -239,10 +182,6 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
                 # to prevent problems later
                 rews_tensor =  Tensor(batch['rews']).unsqueeze(1)
                 done_tensor =  Tensor(batch['done']).unsqueeze(1)
-                # print(obs_tensor.shape, obs_next_tensor.shape, acts_tensor.shape,rews_tensor.shape,done_tensor.shape)
-
-                # v_value = value_net(obs_tensor)
-                # q_value = q1_net(torch.cat([obs_tensor,acts_tensor],1))
 
                 """
                 now we do a SAC update, following the OpenAI spinup doc
@@ -281,7 +220,7 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
                 policy_loss = - (q1_a_tilda - alpha*log_prob_a_tilda).mean()
 
                 """
-                policy regularization loss, this is not in openai's minimal version, but
+                add policy regularization loss, this is not in openai's minimal version, but
                 they are in the original sac code, see https://github.com/vitchyr/rlkit for reference
                 this part is not necessary but might improve performance
                 """
@@ -311,7 +250,7 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
                 # see line 16: update target value network with value network
                 soft_update_model1_with_model2(target_value_net, value_net, polyak)
 
-                ## store diagnostic info to logger
+                # store diagnostic info to logger
                 logger.store(LossPi=policy_loss.item(), LossQ1=q1_loss.item(), LossQ2=q2_loss.item(),
                              LossV=v_loss.item(),
                              Q1Vals=q1_prediction.detach().numpy(),
@@ -328,9 +267,18 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
         if (t+1) % steps_per_epoch == 0:
             epoch = t // steps_per_epoch
 
-            # Save model TODO need to change code for saving pytorch model
-            # if (epoch % save_freq == 0) or (epoch == epochs-1):
-            #     logger.save_state({'env': env}, None)
+            """
+            Save pytorch model, very different from tensorflow version
+            We need to save the environment, the state_dict of each network
+            and also the state_dict of each optimizer
+            """
+            sac_state_dict = {'env':env,'policy_net':policy_net.state_dict(),
+                              'value_net':value_net.state_dict(), 'target_value_net':target_value_net.state_dict(),
+                              'q1_net':q1_net.state_dict(), 'q2_net':q2_net.state_dict(),
+                              'policy_opt':policy_optimizer, 'value_opt':value_optimizer,
+                              'q1_opt':q1_optimizer, 'q2_opt':q2_optimizer}
+            if (epoch % save_freq == 0) or (epoch == epochs-1):
+                logger.save_state(sac_state_dict, None)
 
             # Test the performance of the deterministic version of the agent.
             test_agent()
@@ -356,7 +304,6 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
 
 if __name__ == '__main__':
     import argparse
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default='HalfCheetah-v2')
     parser.add_argument('--hid', type=int, default=256)
@@ -374,5 +321,5 @@ if __name__ == '__main__':
 
     sac_pytorch(lambda: gym.make(args.env), hidden_sizes=[args.hid] * args.l,
                 gamma=args.gamma, seed=args.seed, epochs=args.epochs,
-                exp_name=args.exp_name, data_dir=args.data_dir, steps_per_epoch=args.steps_per_epoch,
+                steps_per_epoch=args.steps_per_epoch,
                 logger_kwargs=logger_kwargs)

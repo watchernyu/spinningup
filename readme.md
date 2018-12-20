@@ -30,9 +30,9 @@ OpenAI Spinup docs on SAC: https://spinningup.openai.com/en/latest/algorithms/sa
 rlkit sac implementation: https://github.com/vitchyr/rlkit
 
 ## Acknowledgement 
-Great thanks to Joshua Achiam, the author of OpenAI Spinning Up. I think the Spinning Up documentation/code is an incredibly good resource for learning DRL and it made my learning much more effective. And also huge thanks for helping me with some Spinup coding issues!
+Great thanks to Josh Achiam, the author of OpenAI Spinning Up. I think the Spinning Up documentation/code is an incredibly good resource for learning DRL and it made my learning much more effective. And also huge thanks for helping me with some Spinup coding issues!
 
-Below are original readme
+Below are original Spinning Up readme
 
 ==================================
 

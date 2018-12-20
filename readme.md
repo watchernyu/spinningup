@@ -2,8 +2,16 @@
 Soft Actor-Critic Pytorch Implementation, based on the OpenAI Spinup documentation and some of its code base. This is a minimal, easy-to-learn and well-commented Pytorch implementation, and recommended to be studied along with the OpenAI Spinup Doc. This SAC implementation is based on the OpenAI spinningup repo, and uses spinup as a dependency. Target audience of this repo is Pytorch users (especially NYU students) who are learning Soft Actor-Critic algorithm. 
 
 ## Setup environment:
-To use the code you should first install spinup: 
-https://spinningup.openai.com/en/latest/user/installation.html
+To use the code you should first download this repo, and then install spinup:
+
+the spinup documentation is here, you should read it to make sure you know the procedure: https://spinningup.openai.com/en/latest/user/installation.html
+
+The only difference in installation is you want to install this forked repo, instead of the original repo, so when you are ready to install this in a virtualenv you should run the following commands instead:
+
+`git clone https://github.com/watchernyu/spinningup.git
+cd spinningup
+pip install -e .
+`
 
 The Pytorch version used is: 0.4.1, install pytorch:
 https://pytorch.org/

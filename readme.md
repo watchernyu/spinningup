@@ -1,10 +1,16 @@
 # Soft Actor-Critic Pytorch Implementation
-Soft Actor-Critic Pytorch Implementation, based on the OpenAI Spinup documentation and some of its code base. This is a minimal, easy-to-learn and well-commented Pytorch implementation, and recommended to be studied along with the OpenAI Spinup Doc.
+Soft Actor-Critic Pytorch Implementation, based on the OpenAI Spinup documentation and some of its code base. This is a minimal, easy-to-learn and well-commented Pytorch implementation, and recommended to be studied along with the OpenAI Spinup Doc. This SAC implementation is based on the OpenAI spinningup repo, and uses spinup as a dependency. Target audience of this repo is Pytorch users (especially NYU students) who are learning Soft Actor-Critic algorithm. 
 
-Original SAC paper: https://arxiv.org/abs/1801.01290
+## Setup environment:
+To use the code you should first install spinup: 
+https://spinningup.openai.com/en/latest/user/installation.html
 
-OpenAI Spinup docs on SAC: https://spinningup.openai.com/en/latest/algorithms/sac.html
+The Pytorch version used is: 0.4.1, install pytorch:
+https://pytorch.org/
 
+If you want to run Mujoco environments, you need to also install Mujoco and get a liscence. For how to install and run Mujoco on NYU's hpc cluster, check out my other tutorial: https://github.com/watchernyu/hpc_setup
+
+## Run experiment
 The SAC implementation can be found under `spinup/algos/sac_pytorch/`
 
 Run experiments with pytorch sac: 
@@ -13,8 +19,20 @@ In the sac_pytorch folder, run the SAC code with `python sac_pytorch`
 
 Or you can use a spinup experiment grid: a sample grid is given under `spinningup/experiments/`, you can run it with `python sample_grid.py`
 
+The program structure, though in Pytorch has been made to be as close to spinup tensorflow code as possible so readers who are familiar with other algorithm code in spinup will find this one easier to work with. I also referenced rlkit's SAC pytorch implementation, especially for the policy and value models part, but did a lot of simplification. 
 
-Below are original readme
+## Reference: 
+
+Original SAC paper: https://arxiv.org/abs/1801.01290
+
+OpenAI Spinup docs on SAC: https://spinningup.openai.com/en/latest/algorithms/sac.html
+
+rlkit sac implementation: https://github.com/vitchyr/rlkit
+
+## Acknowledgement 
+Great thanks to Josh Achiam, the author of OpenAI Spinning Up. I think the Spinning Up documentation/code is an incredibly good resource for learning DRL and it made my learning much more effective. And also huge thanks for helping me with some Spinup coding issues!
+
+Below are original Spinning Up readme
 
 ==================================
 

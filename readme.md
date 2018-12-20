@@ -18,7 +18,9 @@ Run experiments with pytorch sac:
 In the sac_pytorch folder, run the SAC code with `python sac_pytorch`
 
 Or you can use a spinup experiment grid: a sample grid is given under `spinningup/experiments/`, you can run it with `python sample_grid.py`
-Consult Spinup d
+
+Note: currently there is no parallel running for SAC (also not supported by spinup), so you should always set number of cpu to 1 when you use experiment grid.
+
 The program structure, though in Pytorch has been made to be as close to spinup tensorflow code as possible so readers who are familiar with other algorithm code in spinup will find this one easier to work with. I also referenced rlkit's SAC pytorch implementation, especially for the policy and value models part, but did a lot of simplification. 
 
 Consult Spinup documentation for output and plotting:

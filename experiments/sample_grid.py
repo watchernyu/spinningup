@@ -11,7 +11,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     eg = ExperimentGrid(name='sac-baseline')
-    eg.add('env_name', ['HalfCheetah-v2'], '', True)
+    eg.add('env_name', ['Pendulum-v0'], '', True)
     eg.add('seed', [10*i for i in range(args.num_runs)])
     eg.add('epochs', 200)
     eg.add('steps_per_epoch', 5000)

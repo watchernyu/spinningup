@@ -87,6 +87,9 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
 
+    # if environment has a smaller max episode length, then use the environment's max episode length
+    max_ep_len = env._max_episode_steps if max_ep_len > env._max_episode_steps else max_ep_len
+
     # Action limit for clamping: critically, assumes all dimensions share the same bound!
     act_limit = env.action_space.high[0]
 
@@ -305,7 +308,7 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='HalfCheetah-v2')
+    parser.add_argument('--env', type=str, default='Pendulum-v0')
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)

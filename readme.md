@@ -2,8 +2,16 @@
 Soft Actor-Critic Pytorch Implementation, based on the OpenAI Spinup documentation and some of its code base. This is a minimal, easy-to-learn and well-commented Pytorch implementation, and recommended to be studied along with the OpenAI Spinup Doc. This SAC implementation is based on the OpenAI spinningup repo, and uses spinup as a dependency. Target audience of this repo is Pytorch users (especially NYU students) who are learning Soft Actor-Critic algorithm. 
 
 ## Setup environment:
-To use the code you should first install spinup: 
-https://spinningup.openai.com/en/latest/user/installation.html
+To use the code you should first download this repo, and then install spinup:
+
+the spinup documentation is here, you should read it to make sure you know the procedure: https://spinningup.openai.com/en/latest/user/installation.html
+
+The only difference in installation is you want to install this forked repo, instead of the original repo, so when you are ready to install this in a virtualenv you should run the following commands instead:
+
+`git clone https://github.com/watchernyu/spinningup.git
+cd spinningup
+pip install -e .
+`
 
 The Pytorch version used is: 0.4.1, install pytorch:
 https://pytorch.org/
@@ -18,7 +26,9 @@ Run experiments with pytorch sac:
 In the sac_pytorch folder, run the SAC code with `python sac_pytorch`
 
 Or you can use a spinup experiment grid: a sample grid is given under `spinningup/experiments/`, you can run it with `python sample_grid.py`
-Consult Spinup d
+
+Note: currently there is no parallel running for SAC (also not supported by spinup), so you should always set number of cpu to 1 when you use experiment grid.
+
 The program structure, though in Pytorch has been made to be as close to spinup tensorflow code as possible so readers who are familiar with other algorithm code in spinup will find this one easier to work with. I also referenced rlkit's SAC pytorch implementation, especially for the policy and value models part, but did a lot of simplification. 
 
 Consult Spinup documentation for output and plotting:

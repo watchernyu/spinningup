@@ -12,7 +12,7 @@ from spinup.utils.run_utils import setup_logger_kwargs
 def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
                 steps_per_epoch=5000, epochs=100, replay_size=int(1e6), gamma=0.99,
                 polyak=0.995, lr=3e-4, alpha=0.2, batch_size=256, start_steps=10000,
-                max_ep_len=1000, save_freq=1,
+                max_ep_len=1000, save_freq=1, dont_save=False,
                 logger_kwargs=dict(),):
     """
     Largely following OpenAI documentation
@@ -96,7 +96,7 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
     # Experience buffer
     replay_buffer = ReplayBuffer(obs_dim=obs_dim, act_dim=act_dim, size=replay_size)
 
-    def test_agent(n=10):
+    def test_agent(n=5):
         """
         This will test the agent's performance by running n episodes
         During the runs, the agent only take deterministic action, so the
@@ -139,6 +139,8 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
     mse_criterion = nn.MSELoss()
 
     # Main loop: collect experience in env and update/log each epoch
+    # NOTE: t here is the current number of total timesteps used
+    # it is not the number of timesteps passed in the current episode
     for t in range(total_steps):
         """
         Until start_steps have elapsed, randomly sample actions
@@ -275,13 +277,14 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
             We need to save the environment, the state_dict of each network
             and also the state_dict of each optimizer
             """
-            sac_state_dict = {'env':env,'policy_net':policy_net.state_dict(),
-                              'value_net':value_net.state_dict(), 'target_value_net':target_value_net.state_dict(),
-                              'q1_net':q1_net.state_dict(), 'q2_net':q2_net.state_dict(),
-                              'policy_opt':policy_optimizer, 'value_opt':value_optimizer,
-                              'q1_opt':q1_optimizer, 'q2_opt':q2_optimizer}
-            if (epoch % save_freq == 0) or (epoch == epochs-1):
-                logger.save_state(sac_state_dict, None)
+            if not dont_save:
+                sac_state_dict = {'env':env,'policy_net':policy_net.state_dict(),
+                                  'value_net':value_net.state_dict(), 'target_value_net':target_value_net.state_dict(),
+                                  'q1_net':q1_net.state_dict(), 'q2_net':q2_net.state_dict(),
+                                  'policy_opt':policy_optimizer, 'value_opt':value_optimizer,
+                                  'q1_opt':q1_optimizer, 'q2_opt':q2_optimizer}
+                if (epoch % save_freq == 0) or (epoch == epochs-1):
+                    logger.save_state(sac_state_dict, None)
 
             # Test the performance of the deterministic version of the agent.
             test_agent()
@@ -313,7 +316,7 @@ if __name__ == '__main__':
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--exp_name', type=str, default='sac')
     parser.add_argument('--data_dir', type=str, default='data/')
     parser.add_argument('--steps_per_epoch', type=int, default=5000)

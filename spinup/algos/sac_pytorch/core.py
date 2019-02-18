@@ -181,6 +181,7 @@ class TanhGaussianPolicy(Mlp):
             init_w=1e-3,
             hidden_activation=F.relu,
             hidden_init=fanin_init,
+            action_limit=1.0
     ):
         super().__init__(
             input_size=obs_dim,
@@ -198,8 +199,26 @@ class TanhGaussianPolicy(Mlp):
         self.last_fc_log_std = nn.Linear(last_hidden_size, action_dim)
         self.last_fc_log_std.weight.data.uniform_(-init_w, init_w)
         self.last_fc_log_std.bias.data.uniform_(-init_w, init_w)
+        ## action limit: for example, humanoid has an action limit of -0.4 to 0.4
+        self.action_limit = action_limit
+    #
+    # def get_env_action(self, obs_np, action_limit, deterministic=False):
+    #     """
+    #     Get an action that can be used to forward one step in the environment
+    #     :param obs_np: observation got from environment, in numpy form
+    #     :param action_limit: for scaling the action from range (-1,1) to, for example, range (-3,3)
+    #     :param deterministic: if true then policy make a deterministic action, instead of sample an action
+    #     :return: action in numpy format, can be directly put into env.step()
+    #     """
+    #     ## convert observations to pytorch tensors first
+    #     ## and then use the forward method
+    #     obs_tensor = torch.Tensor(obs_np).unsqueeze(0)
+    #     action_tensor = self.forward(obs_tensor, deterministic=deterministic)[0].detach()
+    #     ## convert action into the form that can put into the env and scale it
+    #     action_np = action_tensor.numpy().reshape(-1) * action_limit
+    #     return action_np
 
-    def get_env_action(self, obs_np, action_limit, deterministic=False):
+    def get_env_action(self, obs_np, deterministic=False):
         """
         Get an action that can be used to forward one step in the environment
         :param obs_np: observation got from environment, in numpy form
@@ -212,7 +231,7 @@ class TanhGaussianPolicy(Mlp):
         obs_tensor = torch.Tensor(obs_np).unsqueeze(0)
         action_tensor = self.forward(obs_tensor, deterministic=deterministic)[0].detach()
         ## convert action into the form that can put into the env and scale it
-        action_np = action_tensor.numpy().reshape(-1) * action_limit
+        action_np = action_tensor.numpy().reshape(-1)
         return action_np
 
     def forward(
@@ -264,7 +283,7 @@ class TanhGaussianPolicy(Mlp):
                     action = tanh_normal.sample()
 
         return (
-            action, mean, log_std, log_prob, std, pre_tanh_value,
+            action * self.action_limit, mean, log_std, log_prob, std, pre_tanh_value,
         )
 
 def soft_update_model1_with_model2(model1, model2, rou):

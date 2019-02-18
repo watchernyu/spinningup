@@ -12,7 +12,7 @@ from spinup.utils.run_utils import setup_logger_kwargs
 def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
                 steps_per_epoch=5000, epochs=100, replay_size=int(1e6), gamma=0.99,
                 polyak=0.995, lr=3e-4, alpha=0.2, batch_size=256, start_steps=10000,
-                max_ep_len=1000, save_freq=1, dont_save=False,
+                max_ep_len=1000, save_freq=1, dont_save=False, regularization_weight=1e-3,
                 logger_kwargs=dict(),):
     """
     Largely following OpenAI documentation
@@ -91,7 +91,8 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
     max_ep_len = env._max_episode_steps if max_ep_len > env._max_episode_steps else max_ep_len
 
     # Action limit for clamping: critically, assumes all dimensions share the same bound!
-    act_limit = env.action_space.high[0]
+    # we need .item() to convert it from numpy float to python float
+    act_limit = env.action_space.high[0].item()
 
     # Experience buffer
     replay_buffer = ReplayBuffer(obs_dim=obs_dim, act_dim=act_dim, size=replay_size)
@@ -108,7 +109,7 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
             o, r, d, ep_ret, ep_len = test_env.reset(), 0, False, 0, 0
             while not (d or (ep_len == max_ep_len)):
                 # Take deterministic actions at test time
-                a = policy_net.get_env_action(o, action_limit=act_limit, deterministic=True)
+                a = policy_net.get_env_action(o, deterministic=True)
                 o, r, d, _ = test_env.step(a)
                 ep_ret += r
                 ep_len += 1
@@ -121,7 +122,7 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
 
     """init all networks"""
     # see line 1
-    policy_net = TanhGaussianPolicy(obs_dim, act_dim, hidden_sizes)
+    policy_net = TanhGaussianPolicy(obs_dim, act_dim, hidden_sizes,action_limit=act_limit)
     value_net = Mlp(obs_dim,1,hidden_sizes)
     target_value_net = Mlp(obs_dim,1,hidden_sizes)
     q1_net = Mlp(obs_dim+act_dim,1,hidden_sizes)
@@ -148,7 +149,7 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
         use the learned policy. 
         """
         if t > start_steps:
-            a = policy_net.get_env_action(o, action_limit=act_limit)
+            a = policy_net.get_env_action(o, deterministic=False)
         else:
             a = env.action_space.sample()
 
@@ -229,8 +230,8 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
                 they are in the original sac code, see https://github.com/vitchyr/rlkit for reference
                 this part is not necessary but might improve performance
                 """
-                policy_mean_reg_weight = 1e-3
-                policy_std_reg_weight = 1e-3
+                policy_mean_reg_weight = regularization_weight
+                policy_std_reg_weight = regularization_weight
                 mean_reg_loss = policy_mean_reg_weight * (mean_a_tilda ** 2).mean()
                 std_reg_loss = policy_std_reg_weight * (log_std_a_tilda ** 2).mean()
                 policy_loss = policy_loss + mean_reg_loss + std_reg_loss

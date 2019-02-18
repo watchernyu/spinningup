@@ -8,10 +8,11 @@ the spinup documentation is here, you should read it to make sure you know the p
 
 The only difference in installation is you want to install this forked repo, instead of the original repo, so when you are ready to install this in a virtualenv you should run the following commands instead:
 
-`git clone https://github.com/watchernyu/spinningup.git
+```
+git clone https://github.com/watchernyu/spinningup.git
 cd spinningup
 pip install -e .
-`
+```
 
 The Pytorch version used is: 0.4.1, install pytorch:
 https://pytorch.org/

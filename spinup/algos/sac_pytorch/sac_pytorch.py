@@ -74,15 +74,17 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
     logger = EpochLogger(**logger_kwargs)
     logger.save_config(locals())
 
+    env, test_env = env_fn(), env_fn()
+
+    ## seed torch and numpy
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    env, test_env = env_fn(), env_fn()
-
-    ## seed environment always with 0 so that the series of starting obs will be same
-    ## you can also use the torch,np seed for env, that will give you different starting obs for different seeds
+    ## seed environment along with env action space so that everything about env is seeded
     env.seed(seed)
+    env.action_space.np_random.seed(seed)
     test_env.seed(seed)
+    test_env.action_space.np_random.seed(seed)
 
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]

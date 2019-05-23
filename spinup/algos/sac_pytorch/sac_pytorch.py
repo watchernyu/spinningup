@@ -12,7 +12,7 @@ from spinup.utils.run_utils import setup_logger_kwargs
 def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
                 steps_per_epoch=5000, epochs=100, replay_size=int(1e6), gamma=0.99,
                 polyak=0.995, lr=3e-4, alpha=0.2, batch_size=256, start_steps=10000,
-                max_ep_len=1000, save_freq=1, dont_save=False, regularization_weight=1e-3,
+                max_ep_len=1000, save_freq=1, dont_save=True, regularization_weight=1e-3,
                 logger_kwargs=dict(),):
     """
     Largely following OpenAI documentation
@@ -69,6 +69,8 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
         logger_kwargs (dict): Keyword args for EpochLogger.
 
     """
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print("running on device:" ,device)
 
     """set up logger"""
     logger = EpochLogger(**logger_kwargs)
@@ -124,11 +126,11 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
 
     """init all networks"""
     # see line 1
-    policy_net = TanhGaussianPolicy(obs_dim, act_dim, hidden_sizes,action_limit=act_limit)
-    value_net = Mlp(obs_dim,1,hidden_sizes)
-    target_value_net = Mlp(obs_dim,1,hidden_sizes)
-    q1_net = Mlp(obs_dim+act_dim,1,hidden_sizes)
-    q2_net = Mlp(obs_dim+act_dim,1,hidden_sizes)
+    policy_net = TanhGaussianPolicy(obs_dim, act_dim, hidden_sizes,action_limit=act_limit).to(device)
+    value_net = Mlp(obs_dim,1,hidden_sizes).to(device)
+    target_value_net = Mlp(obs_dim,1,hidden_sizes).to(device)
+    q1_net = Mlp(obs_dim+act_dim,1,hidden_sizes).to(device)
+    q2_net = Mlp(obs_dim+act_dim,1,hidden_sizes).to(device)
     # see line 2: copy parameters from value_net to target_value_net
     target_value_net.load_state_dict(value_net.state_dict())
 
@@ -183,13 +185,13 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
             for j in range(ep_len):
                 # get data from replay buffer
                 batch = replay_buffer.sample_batch(batch_size)
-                obs_tensor =  Tensor(batch['obs1'])
-                obs_next_tensor =  Tensor(batch['obs2'])
-                acts_tensor =  Tensor(batch['acts'])
+                obs_tensor =  Tensor(batch['obs1']).to(device)
+                obs_next_tensor =  Tensor(batch['obs2']).to(device)
+                acts_tensor =  Tensor(batch['acts']).to(device)
                 # unsqueeze is to make sure rewards and done tensors are of the shape nx1, instead of n
                 # to prevent problems later
-                rews_tensor =  Tensor(batch['rews']).unsqueeze(1)
-                done_tensor =  Tensor(batch['done']).unsqueeze(1)
+                rews_tensor =  Tensor(batch['rews']).unsqueeze(1).to(device)
+                done_tensor =  Tensor(batch['done']).unsqueeze(1).to(device)
 
                 """
                 now we do a SAC update, following the OpenAI spinup doc
@@ -259,12 +261,12 @@ def sac_pytorch(env_fn, hidden_sizes=[256, 256], seed=0,
                 soft_update_model1_with_model2(target_value_net, value_net, polyak)
 
                 # store diagnostic info to logger
-                logger.store(LossPi=policy_loss.item(), LossQ1=q1_loss.item(), LossQ2=q2_loss.item(),
-                             LossV=v_loss.item(),
-                             Q1Vals=q1_prediction.detach().numpy(),
-                             Q2Vals=q2_prediction.detach().numpy(),
-                             VVals=v_prediction.detach().numpy(),
-                             LogPi=log_prob_a_tilda.detach().numpy())
+                logger.store(LossPi=policy_loss.cpu().item(), LossQ1=q1_loss.cpu().item(), LossQ2=q2_loss.cpu().item(),
+                             LossV=v_loss.cpu().item(),
+                             Q1Vals=q1_prediction.detach().cpu().numpy(),
+                             Q2Vals=q2_prediction.detach().cpu().numpy(),
+                             VVals=v_prediction.detach().cpu().numpy(),
+                             LogPi=log_prob_a_tilda.detach().cpu().numpy())
 
             ## store episode return and length to logger
             logger.store(EpRet=ep_ret, EpLen=ep_len)

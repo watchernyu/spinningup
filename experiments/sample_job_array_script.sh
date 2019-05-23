@@ -5,6 +5,8 @@
 #SBATCH --nodes=1
 #SBATCH --mem=16GB
 
+# use this command outside a comment to request for one gpu: #SBATCH --gres=gpu:1
+
 #SBATCH --array=0-9
 ##SBATCH --output=blhum_%A_%a.out #if you need each subjob to generate an output file.
 #SBATCH --output=blhum_%A_%a.out # %A is SLURM_ARRAY_JOB_ID, %a is SLURM_ARRAY_TASK_ID, which is 0-9

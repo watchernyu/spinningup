@@ -11,6 +11,8 @@
 #SBATCH --mail-type=END
 #SBATCH --mail-user=netid@nyu.edu
 
+# use this command outside a comment to request for one gpu: #SBATCH --gres=gpu:1
+
 module load anaconda3 gcc/7.3
 module load cuda/9.0
 source activate rl

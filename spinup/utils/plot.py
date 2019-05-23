@@ -12,7 +12,7 @@ DIV_LINE_WIDTH = 50
 exp_idx = 0
 units = dict()
 
-def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, **kwargs):
+def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, no_legend=False, legend_loc='best', **kwargs):
     if smooth > 1:
         """
         smooth data with moving window average.
@@ -30,7 +30,29 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
     if isinstance(data, list):
         data = pd.concat(data, ignore_index=True)
     sns.set(style="darkgrid", font_scale=1.5)
-    sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', **kwargs)
+    # sns.set_palette('bright')
+
+    print("##############")
+    # print("##############")
+    # xaxis_column_index = data.columns.get_loc(xaxis)
+    # value_column_index = data.columns.get_loc(value)
+
+    # data.index += 1
+    # data['Epoch'] += 1
+    # data = pd.concat([first_row, data])
+
+    # data.iloc[-1] = data.iloc[0]
+    # data[xaxis] += 5000
+    # data.iloc[-1, column_index] = 0
+    #
+    # data = data.sort_index()
+
+    # print(data.loc[0])
+
+    sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, legend=(not no_legend), ci='sd', **kwargs)
+    plt.xlabel('environment interactions')
+    plt.ylabel('average test return')
+
     """
     If you upgrade to any version of Seaborn greater than 0.8.1, switch from 
     tsplot to lineplot replacing L29 with:
@@ -39,7 +61,8 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
 
     Changes the colorscheme and the default legend style, though.
     """
-    plt.legend(loc='best').draggable()
+    if not no_legend:
+        plt.legend(loc=legend_loc).draggable()
 
     """
     For the version of the legend used in the Spinning Up benchmarking page, 
@@ -146,16 +169,24 @@ def get_all_datasets(all_logdirs, legend=None, select=None, exclude=None):
 
 
 def make_plots(all_logdirs, legend=None, xaxis=None, values=None, count=False,  
-               font_scale=1.5, smooth=1, select=None, exclude=None, estimator='mean'):
+               font_scale=1.5, smooth=1, select=None, exclude=None, estimator='mean', no_legend=False, legend_loc='best',
+               save_name=None, xlimit=-1):
     data = get_all_datasets(all_logdirs, legend, select, exclude)
     values = values if isinstance(values, list) else [values]
     condition = 'Condition2' if count else 'Condition1'
     estimator = getattr(np, estimator)      # choose what to show on main curve: mean? max? min?
     for value in values:
         plt.figure()
-        plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator)
-    plt.show()
+        # plt.figure(figsize=(10, 7))
+        plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, no_legend=no_legend, legend_loc=legend_loc, estimator=estimator)
+        if xlimit > 0:
+            plt.xlim(0, xlimit)
 
+    if save_name is not None:
+        fig = plt.gcf()
+        fig.savefig(save_name)
+    else:
+        plt.show()
 
 def main():
     import argparse
@@ -169,6 +200,11 @@ def main():
     parser.add_argument('--select', nargs='*')
     parser.add_argument('--exclude', nargs='*')
     parser.add_argument('--est', default='mean')
+    parser.add_argument('--no-legend', action='store_true')
+    parser.add_argument('--legend-loc', type=str, default='best')
+    parser.add_argument('--save-name', type=str, default=None)
+    parser.add_argument('--xlimit', type=int, default=-1)
+
     args = parser.parse_args()
     """
 
@@ -216,12 +252,16 @@ def main():
 
         exclude (strings): Optional exclusion rule: plotter will only show 
             curves from logdirs that do not contain these substrings.
+            
+        no-legend: if specified then no legend will be shown
+        
 
     """
 
     make_plots(args.logdir, args.legend, args.xaxis, args.value, args.count, 
                smooth=args.smooth, select=args.select, exclude=args.exclude,
-               estimator=args.est)
+               estimator=args.est, no_legend=args.no_legend, legend_loc=args.legend_loc, save_name=args.save_name,
+               xlimit=args.xlimit)
 
 if __name__ == "__main__":
     main()

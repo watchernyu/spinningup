@@ -1,3 +1,8 @@
+# No longer maintained
+This fork is no longer used for development, please go to 
+https://github.com/watchernyu/spinningup-drl-prototyping
+instead. Thanks!
+
 # Soft Actor-Critic Pytorch Implementation
 Soft Actor-Critic Pytorch Implementation, based on the OpenAI Spinup documentation and some of its code base. This is a minimal, easy-to-learn and well-commented Pytorch implementation, and recommended to be studied along with the OpenAI Spinup Doc. This SAC implementation is based on the OpenAI spinningup repo, and uses spinup as a dependency. Target audience of this repo is Pytorch users (especially NYU students) who are learning Soft Actor-Critic algorithm. 
 
